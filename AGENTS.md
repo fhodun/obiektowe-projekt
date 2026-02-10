@@ -1,4 +1,4 @@
-# AGENT.md
+# AGENTS.md
 
 ## Multimedialny Menedżer Notatek i Rysunków (MAUI .NET 10)
 
