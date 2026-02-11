@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="obiektowe_projekt.MainPage"
+             Title="Multimedialny Menedżer Notatek">
+
+    <Grid ColumnDefinitions="2*,3*" RowDefinitions="Auto,*" Padding="12" ColumnSpacing="12" RowSpacing="12">
+        <HorizontalStackLayout Grid.ColumnSpan="2" Spacing="8">
+            <Button Text="Dodaj" Command="{Binding AddNoteCommand}" />
+            <Button Text="Usuń" Command="{Binding DeleteSelectedNoteCommand}" />
+            <Button Text="Duplikuj" Command="{Binding DuplicateSelectedNoteCommand}" />
+            <Button Text="Wczytaj" Command="{Binding LoadCommand}" />
+            <Button Text="Zapisz" Command="{Binding SaveCommand}" />
+            <Button Text="Eksport ZIP" Command="{Binding ExportSelectedCommand}" />
+        </HorizontalStackLayout>
+
+        <CollectionView Grid.Row="1"
+                        ItemsSource="{Binding Notes}"
+                        SelectionMode="Single"
+                        SelectedItem="{Binding SelectedNote}">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Grid Padding="8" ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto">
+                        <CheckBox Grid.RowSpan="2" IsChecked="{Binding IsSelectedForExport}" VerticalOptions="Center" />
+                        <Label Grid.Column="1" Text="{Binding Title}" FontAttributes="Bold" />
+                        <Label Grid.Row="1" Grid.Column="1" Text="{Binding UpdatedAt, StringFormat='Aktualizacja: {0:G}'}" FontSize="12" TextColor="Gray" />
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <ScrollView Grid.Column="1" Grid.Row="1">
+            <VerticalStackLayout Spacing="8">
+                <Label Text="Tytuł" />
+                <Entry Text="{Binding SelectedNote.Title, Mode=TwoWay}"
+                       Placeholder="Tytuł notatki" />
+
+                <Label Text="Treść" />
+                <Editor Text="{Binding SelectedNote.Body, Mode=TwoWay}"
+                        AutoSize="TextChanges"
+                        HeightRequest="120" />
+
+                <HorizontalStackLayout Spacing="6">
+                    <Label Text="Kolor:" VerticalOptions="Center" />
+                    <Button Text="Czarny" Command="{Binding SelectBlackColorCommand}" />
+                    <Button Text="Niebieski" Command="{Binding SelectBlueColorCommand}" />
+                    <Label Text="Grubość:" VerticalOptions="Center" />
+                    <Button Text="2" Command="{Binding SelectThinStrokeCommand}" />
+                    <Button Text="6" Command="{Binding SelectThickStrokeCommand}" />
+                    <Button Text="Undo" Command="{Binding UndoStrokeCommand}" />
+                    <Button Text="Clear" Command="{Binding ClearDrawingCommand}" />
+                </HorizontalStackLayout>
+
+                <GraphicsView x:Name="DrawingView"
+                              HeightRequest="320"
+                              BackgroundColor="White"
+                              StartInteraction="OnDrawingStart"
+                              DragInteraction="OnDrawingDrag"
+                              EndInteraction="OnDrawingEnd" />
+
+                <Label Text="{Binding StatusMessage}" TextColor="DarkGreen" />
+                <Label Text="{Binding SelectedNoteDates}" FontSize="12" TextColor="Gray" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>
