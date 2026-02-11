@@ -86,7 +86,7 @@ public partial class MainViewModel : ObservableObject
         _currentStroke = new Stroke
         {
             Thickness = SelectedThickness,
-            ArgbColor = SelectedColor.ToArgbHex(),
+            ArgbColor = SelectedColor.ToUint(),
             Points = new List<DrawingPoint> { new((float)point.X, (float)point.Y) }
         };
     }
@@ -213,7 +213,7 @@ public partial class MainViewModel : ObservableObject
         var exportResult = await _zipExportService.ExportAsync(selected);
         StatusMessage = exportResult.IsSuccess
             ? $"Wyeksportowano: {exportResult.Value}"
-            : exportResult.Error;
+            : exportResult.Error.ToString();
     }
 
     private async Task AutoSaveIfDirtyAsync()
