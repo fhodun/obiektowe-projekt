@@ -36,7 +36,7 @@ public sealed class AudioService : IAudioService
         var permissionStatus = await Permissions.RequestAsync<Permissions.Microphone>();
         if (permissionStatus != PermissionStatus.Granted)
         {
-            return Result<string>.Failure("Brak zgody na użycie mikrofonu.");
+            return Result<string>.Failure("Brak zgody na użycie mikrofonu. Na macOS włącz dostęp w Ustawienia systemowe > Prywatność i ochrona > Mikrofon.");
         }
 
         try
