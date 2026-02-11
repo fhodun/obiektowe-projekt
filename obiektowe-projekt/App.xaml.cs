@@ -1,16 +1,17 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-
 namespace obiektowe_projekt;
 
 public partial class App : Application
 {
-    public App()
+    private readonly MainPage _mainPage;
+
+    public App(MainPage mainPage)
     {
         InitializeComponent();
+        _mainPage = mainPage;
     }
 
     protected override Window CreateWindow(IActivationState? activationState)
     {
-        return new Window(new AppShell());
+        return new Window(_mainPage);
     }
 }
