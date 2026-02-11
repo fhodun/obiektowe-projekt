@@ -26,10 +26,35 @@ public class ZipExportService : IZipExportService
             using var archive = new ZipArchive(zipFs, ZipArchiveMode.Create, leaveOpen: false);
             var entry = archive.CreateEntry("notes.json", CompressionLevel.Optimal);
 
-            await using var stream = entry.Open();
-            await using var writer = new StreamWriter(stream, Encoding.UTF8);
-            var json = JsonSerializer.Serialize(notes, new JsonSerializerOptions { WriteIndented = true });
-            await writer.WriteAsync(json.AsMemory(), cancellationToken);
+            await using (var stream = entry.Open())
+            await using (var writer = new StreamWriter(stream, Encoding.UTF8))
+            {
+                var json = JsonSerializer.Serialize(notes, new JsonSerializerOptions { WriteIndented = true });
+                await writer.WriteAsync(json.AsMemory(), cancellationToken);
+            }
+
+            var exportedAudioNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var note in notes)
+            {
+                if (note.Audio is null || string.IsNullOrWhiteSpace(note.Audio.StoredPath) || !File.Exists(note.Audio.StoredPath))
+                {
+                    continue;
+                }
+
+                var fileName = string.IsNullOrWhiteSpace(note.Audio.FileName)
+                    ? Path.GetFileName(note.Audio.StoredPath)
+                    : note.Audio.FileName;
+
+                if (!exportedAudioNames.Add(fileName))
+                {
+                    continue;
+                }
+
+                var audioEntry = archive.CreateEntry($"audio/{fileName}", CompressionLevel.Optimal);
+                await using var entryStream = audioEntry.Open();
+                await using var sourceStream = File.OpenRead(note.Audio.StoredPath);
+                await sourceStream.CopyToAsync(entryStream, cancellationToken);
+            }
 
             return Result<string>.Success(exportPath);
         }

@@ -58,6 +58,20 @@
                               DragInteraction="OnDrawingDrag"
                               EndInteraction="OnDrawingEnd" />
 
+                <Frame BorderColor="LightGray" Padding="8">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Audio" FontAttributes="Bold" />
+                        <HorizontalStackLayout Spacing="6">
+                            <Button Text="Record" Command="{Binding StartRecordingCommand}" />
+                            <Button Text="Stop Rec" Command="{Binding StopRecordingCommand}" />
+                            <Button Text="Play" Command="{Binding PlayAudioCommand}" />
+                            <Button Text="Stop" Command="{Binding StopAudioCommand}" />
+                        </HorizontalStackLayout>
+                        <Label Text="{Binding AudioStatus}" TextColor="DarkSlateBlue" />
+                    </VerticalStackLayout>
+                </Frame>
+
+
                 <Label Text="{Binding StatusMessage}" TextColor="DarkGreen" />
                 <Label Text="{Binding SelectedNoteDates}" FontSize="12" TextColor="Gray" />
             </VerticalStackLayout>
