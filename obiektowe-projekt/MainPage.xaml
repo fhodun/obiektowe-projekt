@@ -58,6 +58,25 @@
                               DragInteraction="OnDrawingDrag"
                               EndInteraction="OnDrawingEnd" />
 
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="Audio" FontAttributes="Bold" />
+                    <HorizontalStackLayout Spacing="6">
+                        <Button Text="Record"
+                                Command="{Binding StartRecordingCommand}"
+                                IsEnabled="{Binding CanRecordAudio}" />
+                        <Button Text="Stop Rec"
+                                Command="{Binding StopRecordingCommand}"
+                                IsEnabled="{Binding CanStopRecording}" />
+                        <Button Text="Play"
+                                Command="{Binding PlayAudioCommand}"
+                                IsEnabled="{Binding CanPlayAudio}" />
+                        <Button Text="Stop"
+                                Command="{Binding StopAudioCommand}"
+                                IsEnabled="{Binding CanStopPlayback}" />
+                    </HorizontalStackLayout>
+                    <Label Text="{Binding AudioStatus}" TextColor="DarkSlateBlue" />
+                </VerticalStackLayout>
+
                 <Label Text="{Binding StatusMessage}" TextColor="DarkGreen" />
                 <Label Text="{Binding SelectedNoteDates}" FontSize="12" TextColor="Gray" />
             </VerticalStackLayout>

@@ -18,4 +18,5 @@ public class AudioAttachment
 {
     public string FileName { get; set; } = string.Empty;
     public string StoredPath { get; set; } = string.Empty;
+    public double? DurationSeconds { get; set; }
 }

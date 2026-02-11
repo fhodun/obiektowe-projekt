@@ -14,6 +14,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IZipExportService _zipExportService;
     private readonly IAutoSaveService _autoSaveService;
     private readonly IDrawingService _drawingService;
+    private readonly IAudioService _audioService;
 
     private bool _isDirty;
 
@@ -25,6 +26,15 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private string statusMessage = "Gotowe.";
+
+    [ObservableProperty]
+    private string audioStatus = "No audio";
+
+    [ObservableProperty]
+    private bool isRecording;
+
+    [ObservableProperty]
+    private bool isPlaying;
 
     [ObservableProperty]
     private Color selectedColor = Colors.Black;
@@ -41,16 +51,26 @@ public partial class MainViewModel : ObservableObject
         ? "Brak wybranej notatki"
         : $"Created: {SelectedNote.CreatedAt:G} | Updated: {SelectedNote.UpdatedAt:G}";
 
+    public bool CanRecordAudio => SelectedNote is not null && !IsPlaying && !IsRecording;
+
+    public bool CanStopRecording => SelectedNote is not null && IsRecording;
+
+    public bool CanPlayAudio => SelectedNote?.Audio is not null && !IsRecording && !IsPlaying;
+
+    public bool CanStopPlayback => IsPlaying;
+
     public MainViewModel(
         IRepository<List<Note>> repository,
         IZipExportService zipExportService,
         IAutoSaveService autoSaveService,
-        IDrawingService drawingService)
+        IDrawingService drawingService,
+        IAudioService audioService)
     {
         _repository = repository;
         _zipExportService = zipExportService;
         _autoSaveService = autoSaveService;
         _drawingService = drawingService;
+        _audioService = audioService;
 
         Notes.CollectionChanged += OnNotesCollectionChanged;
         _autoSaveService.Start(TimeSpan.FromSeconds(30), AutoSaveIfDirtyAsync);
@@ -60,7 +80,22 @@ public partial class MainViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(SelectedNoteDates));
         CurrentStroke = null;
+        UpdateAudioState();
         DrawingChanged?.Invoke();
+    }
+
+    partial void OnIsRecordingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanRecordAudio));
+        OnPropertyChanged(nameof(CanStopRecording));
+        OnPropertyChanged(nameof(CanPlayAudio));
+    }
+
+    partial void OnIsPlayingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanRecordAudio));
+        OnPropertyChanged(nameof(CanPlayAudio));
+        OnPropertyChanged(nameof(CanStopPlayback));
     }
 
     [RelayCommand]
@@ -121,6 +156,7 @@ public partial class MainViewModel : ObservableObject
         SelectedNote = Notes.OrderByDescending(n => n.UpdatedAt).FirstOrDefault();
         _isDirty = false;
         StatusMessage = loaded.Count == 0 ? "Brak zapisanych danych. Utwórz pierwszą notatkę." : "Wczytano dane.";
+        UpdateAudioState();
     }
 
     [RelayCommand]
@@ -210,6 +246,85 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task StartRecordingAsync()
+    {
+        if (SelectedNote is null)
+        {
+            AudioStatus = "Najpierw wybierz notatkę.";
+            return;
+        }
+
+        var result = await _audioService.StartRecordingAsync(SelectedNote.Id);
+        if (result.IsSuccess)
+        {
+            IsRecording = true;
+            AudioStatus = "Recording...";
+            return;
+        }
+
+        AudioStatus = result.Error;
+    }
+
+    [RelayCommand]
+    private async Task StopRecordingAsync()
+    {
+        if (SelectedNote is null)
+        {
+            return;
+        }
+
+        var result = await _audioService.StopRecordingAsync();
+        IsRecording = false;
+
+        if (!result.IsSuccess || result.Value is null)
+        {
+            AudioStatus = result.Error;
+            return;
+        }
+
+        SelectedNote.Audio = result.Value;
+        TouchSelectedNote();
+        UpdateAudioState();
+        AudioStatus = $"Recorded: {result.Value.FileName}";
+    }
+
+    [RelayCommand]
+    private async Task PlayAudioAsync()
+    {
+        if (SelectedNote?.Audio is null)
+        {
+            AudioStatus = "No audio";
+            return;
+        }
+
+        var playResult = await _audioService.PlayAsync(SelectedNote.Audio);
+        if (playResult.IsSuccess)
+        {
+            IsPlaying = true;
+            AudioStatus = "Playing...";
+            return;
+        }
+
+        if (playResult.Error.Contains("nie istnieje", StringComparison.OrdinalIgnoreCase)
+            || playResult.Error.Contains("does not exist", StringComparison.OrdinalIgnoreCase))
+        {
+            SelectedNote.Audio = null;
+            TouchSelectedNote();
+            UpdateAudioState();
+        }
+
+        AudioStatus = playResult.Error;
+    }
+
+    [RelayCommand]
+    private async Task StopAudioAsync()
+    {
+        await _audioService.StopPlaybackAsync();
+        IsPlaying = false;
+        UpdateAudioState();
+    }
+
+    [RelayCommand]
     private async Task ExportSelectedAsync()
     {
         var selected = Notes.Where(n => n.IsSelectedForExport).ToList();
@@ -289,6 +404,11 @@ public partial class MainViewModel : ObservableObject
         if (ReferenceEquals(note, SelectedNote))
         {
             OnPropertyChanged(nameof(SelectedNoteDates));
+
+            if (e.PropertyName is nameof(Note.Audio))
+            {
+                UpdateAudioState();
+            }
         }
     }
 
@@ -314,4 +434,31 @@ public partial class MainViewModel : ObservableObject
     }
 
     private void MarkDirty() => _isDirty = true;
+
+    private void UpdateAudioState()
+    {
+        OnPropertyChanged(nameof(CanRecordAudio));
+        OnPropertyChanged(nameof(CanStopRecording));
+        OnPropertyChanged(nameof(CanPlayAudio));
+        OnPropertyChanged(nameof(CanStopPlayback));
+
+        if (SelectedNote?.Audio is null)
+        {
+            if (!IsRecording)
+            {
+                AudioStatus = "No audio";
+            }
+
+            return;
+        }
+
+        var durationPart = SelectedNote.Audio.DurationSeconds is > 0
+            ? $" ({TimeSpan.FromSeconds(SelectedNote.Audio.DurationSeconds.Value):mm\\:ss})"
+            : string.Empty;
+
+        if (!IsRecording && !IsPlaying)
+        {
+            AudioStatus = $"Audio: {SelectedNote.Audio.FileName}{durationPart}";
+        }
+    }
 }

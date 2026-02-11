@@ -95,7 +95,12 @@ public partial class Note : ObservableObject, IEquatable<Note>
             {
                 Strokes = Drawing.Strokes.Select(CloneStroke).ToList()
             },
-            Audio = Audio is null ? null : new AudioAttachment { FileName = Audio.FileName, StoredPath = Audio.StoredPath }
+            Audio = Audio is null ? null : new AudioAttachment
+            {
+                FileName = Audio.FileName,
+                StoredPath = Audio.StoredPath,
+                DurationSeconds = Audio.DurationSeconds
+            }
         };
     }
 

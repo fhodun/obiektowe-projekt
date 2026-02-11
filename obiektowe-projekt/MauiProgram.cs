@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Plugin.Maui.Audio;
 using obiektowe_projekt.Models;
 using obiektowe_projekt.Services;
 using obiektowe_projekt.ViewModels;
@@ -12,6 +13,7 @@ public static class MauiProgram
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()
+            .AddAudio()
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
@@ -23,6 +25,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IZipExportService, ZipExportService>();
         builder.Services.AddSingleton<IAutoSaveService, AutoSaveService>();
         builder.Services.AddSingleton<IDrawingService, DrawingService>();
+        builder.Services.AddSingleton<IAudioService, AudioService>();
 
         builder.Services.AddSingleton<MainViewModel>();
         builder.Services.AddSingleton<MainPage>();
