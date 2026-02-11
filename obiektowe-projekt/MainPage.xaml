@@ -32,18 +32,21 @@
         <ScrollView Grid.Column="1" Grid.Row="1">
             <VerticalStackLayout Spacing="8">
                 <Label Text="Tytuł" />
-                <Entry x:Name="TitleEntry" TextChanged="OnTitleChanged" Placeholder="Tytuł notatki" />
+                <Entry Text="{Binding SelectedNote.Title, Mode=TwoWay}"
+                       Placeholder="Tytuł notatki" />
 
                 <Label Text="Treść" />
-                <Editor x:Name="BodyEditor" TextChanged="OnBodyChanged" AutoSize="TextChanges" HeightRequest="120" />
+                <Editor Text="{Binding SelectedNote.Body, Mode=TwoWay}"
+                        AutoSize="TextChanges"
+                        HeightRequest="120" />
 
                 <HorizontalStackLayout Spacing="6">
                     <Label Text="Kolor:" VerticalOptions="Center" />
-                    <Button Text="Czarny" Clicked="OnBlackColorClicked" />
-                    <Button Text="Niebieski" Clicked="OnBlueColorClicked" />
+                    <Button Text="Czarny" Command="{Binding SelectBlackColorCommand}" />
+                    <Button Text="Niebieski" Command="{Binding SelectBlueColorCommand}" />
                     <Label Text="Grubość:" VerticalOptions="Center" />
-                    <Button Text="2" Clicked="OnThickness2Clicked" />
-                    <Button Text="6" Clicked="OnThickness6Clicked" />
+                    <Button Text="2" Command="{Binding SelectThinStrokeCommand}" />
+                    <Button Text="6" Command="{Binding SelectThickStrokeCommand}" />
                     <Button Text="Undo" Command="{Binding UndoStrokeCommand}" />
                     <Button Text="Clear" Command="{Binding ClearDrawingCommand}" />
                 </HorizontalStackLayout>
@@ -56,7 +59,7 @@
                               EndInteraction="OnDrawingEnd" />
 
                 <Label Text="{Binding StatusMessage}" TextColor="DarkGreen" />
-                <Label x:Name="DatesLabel" FontSize="12" TextColor="Gray" />
+                <Label Text="{Binding SelectedNoteDates}" FontSize="12" TextColor="Gray" />
             </VerticalStackLayout>
         </ScrollView>
     </Grid>

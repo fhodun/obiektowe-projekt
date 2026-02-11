@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using obiektowe_projekt.Models;
@@ -11,9 +13,9 @@ public partial class MainViewModel : ObservableObject
     private readonly IRepository<List<Note>> _repository;
     private readonly IZipExportService _zipExportService;
     private readonly IAutoSaveService _autoSaveService;
+    private readonly IDrawingService _drawingService;
 
     private bool _isDirty;
-    private Stroke? _currentStroke;
 
     [ObservableProperty]
     private ObservableCollection<Note> notes = new();
@@ -30,51 +32,48 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private float selectedThickness = 2f;
 
-    public IReadOnlyList<Color> AvailableColors { get; } = new[] { Colors.Black, Colors.Blue };
-    public IReadOnlyList<float> AvailableThicknesses { get; } = new[] { 2f, 6f };
+    [ObservableProperty]
+    private Stroke? currentStroke;
+
+    public event Action? DrawingChanged;
+
+    public string SelectedNoteDates => SelectedNote is null
+        ? "Brak wybranej notatki"
+        : $"Created: {SelectedNote.CreatedAt:G} | Updated: {SelectedNote.UpdatedAt:G}";
 
     public MainViewModel(
         IRepository<List<Note>> repository,
         IZipExportService zipExportService,
-        IAutoSaveService autoSaveService)
+        IAutoSaveService autoSaveService,
+        IDrawingService drawingService)
     {
         _repository = repository;
         _zipExportService = zipExportService;
         _autoSaveService = autoSaveService;
+        _drawingService = drawingService;
 
-        Notes.CollectionChanged += (_, _) => MarkDirty();
+        Notes.CollectionChanged += OnNotesCollectionChanged;
         _autoSaveService.Start(TimeSpan.FromSeconds(30), AutoSaveIfDirtyAsync);
     }
 
     partial void OnSelectedNoteChanged(Note? oldValue, Note? newValue)
     {
-        if (oldValue is not null)
-        {
-            oldValue.IsSelectedForExport = oldValue.IsSelectedForExport;
-        }
+        OnPropertyChanged(nameof(SelectedNoteDates));
+        CurrentStroke = null;
+        DrawingChanged?.Invoke();
     }
 
-    public void UpdateTitle(string title)
-    {
-        if (SelectedNote is null)
-        {
-            return;
-        }
+    [RelayCommand]
+    private void SelectBlackColor() => SelectedColor = Colors.Black;
 
-        SelectedNote.Title = title;
-        TouchNote();
-    }
+    [RelayCommand]
+    private void SelectBlueColor() => SelectedColor = Colors.Blue;
 
-    public void UpdateBody(string body)
-    {
-        if (SelectedNote is null)
-        {
-            return;
-        }
+    [RelayCommand]
+    private void SelectThinStroke() => SelectedThickness = 2f;
 
-        SelectedNote.Body = body;
-        TouchNote();
-    }
+    [RelayCommand]
+    private void SelectThickStroke() => SelectedThickness = 6f;
 
     public void StartStroke(Point point)
     {
@@ -83,36 +82,28 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        _currentStroke = new Stroke
-        {
-            Thickness = SelectedThickness,
-            ArgbColor = SelectedColor.ToUint(),
-            Points = new List<DrawingPoint> { new((float)point.X, (float)point.Y) }
-        };
+        CurrentStroke = _drawingService.StartStroke(point, SelectedColor, SelectedThickness);
+        DrawingChanged?.Invoke();
     }
 
     public void AddStrokePoint(Point point)
     {
-        _currentStroke?.Points.Add(new DrawingPoint((float)point.X, (float)point.Y));
+        _drawingService.AddPoint(CurrentStroke, point);
+        DrawingChanged?.Invoke();
     }
 
     public void EndStroke()
     {
-        if (SelectedNote is null || _currentStroke is null)
+        var didCommit = _drawingService.CommitStroke(SelectedNote, CurrentStroke);
+        CurrentStroke = null;
+
+        if (didCommit)
         {
-            return;
+            TouchSelectedNote();
         }
 
-        if (_currentStroke.Points.Count > 1)
-        {
-            SelectedNote.Drawing.Strokes.Add(_currentStroke);
-            TouchNote();
-        }
-
-        _currentStroke = null;
+        DrawingChanged?.Invoke();
     }
-
-    public Stroke? GetCurrentStroke() => _currentStroke;
 
     [RelayCommand]
     private async Task LoadAsync()
@@ -124,17 +115,22 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        Notes = new ObservableCollection<Note>(result.Value ?? new List<Note>());
-        Notes.CollectionChanged += (_, _) => MarkDirty();
+        var loaded = result.Value ?? new List<Note>();
+        RebindNotes(new ObservableCollection<Note>(loaded));
 
         SelectedNote = Notes.OrderByDescending(n => n.UpdatedAt).FirstOrDefault();
         _isDirty = false;
-        StatusMessage = "Wczytano dane.";
+        StatusMessage = loaded.Count == 0 ? "Brak zapisanych danych. Utwórz pierwszą notatkę." : "Wczytano dane.";
     }
 
     [RelayCommand]
     private async Task SaveAsync()
     {
+        foreach (var note in Notes)
+        {
+            note.EnsureValidTitle();
+        }
+
         var result = await _repository.SaveAsync(Notes.ToList());
         if (result.IsSuccess)
         {
@@ -149,7 +145,12 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void AddNote()
     {
-        var note = new Note();
+        var note = new Note
+        {
+            Title = "Untitled",
+            UpdatedAt = DateTime.Now
+        };
+
         Notes.Add(note);
         SelectedNote = note;
         MarkDirty();
@@ -164,7 +165,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         Notes.Remove(SelectedNote);
-        SelectedNote = Notes.FirstOrDefault();
+        SelectedNote = Notes.OrderByDescending(n => n.UpdatedAt).FirstOrDefault();
         MarkDirty();
     }
 
@@ -191,7 +192,8 @@ public partial class MainViewModel : ObservableObject
         }
 
         SelectedNote.Drawing.Strokes.RemoveAt(SelectedNote.Drawing.Strokes.Count - 1);
-        TouchNote();
+        TouchSelectedNote();
+        DrawingChanged?.Invoke();
     }
 
     [RelayCommand]
@@ -203,7 +205,8 @@ public partial class MainViewModel : ObservableObject
         }
 
         SelectedNote.Drawing.Strokes.Clear();
-        TouchNote();
+        TouchSelectedNote();
+        DrawingChanged?.Invoke();
     }
 
     [RelayCommand]
@@ -213,7 +216,7 @@ public partial class MainViewModel : ObservableObject
         var exportResult = await _zipExportService.ExportAsync(selected);
         StatusMessage = exportResult.IsSuccess
             ? $"Wyeksportowano: {exportResult.Value}"
-            : exportResult.Error.ToString();
+            : exportResult.Error;
     }
 
     private async Task AutoSaveIfDirtyAsync()
@@ -226,28 +229,89 @@ public partial class MainViewModel : ObservableObject
         await MainThread.InvokeOnMainThreadAsync(async () => await SaveAsync());
     }
 
-    private void TouchNote()
+    private void RebindNotes(ObservableCollection<Note> newNotes)
+    {
+        Notes.CollectionChanged -= OnNotesCollectionChanged;
+        foreach (var note in Notes)
+        {
+            note.PropertyChanged -= OnNotePropertyChanged;
+        }
+
+        Notes = newNotes;
+
+        foreach (var note in Notes)
+        {
+            note.PropertyChanged += OnNotePropertyChanged;
+        }
+
+        Notes.CollectionChanged += OnNotesCollectionChanged;
+    }
+
+    private void OnNotesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems is not null)
+        {
+            foreach (var item in e.NewItems.OfType<Note>())
+            {
+                item.PropertyChanged += OnNotePropertyChanged;
+                item.EnsureValidTitle();
+            }
+        }
+
+        if (e.OldItems is not null)
+        {
+            foreach (var item in e.OldItems.OfType<Note>())
+            {
+                item.PropertyChanged -= OnNotePropertyChanged;
+            }
+        }
+
+        MarkDirty();
+    }
+
+    private void OnNotePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not Note note)
+        {
+            return;
+        }
+
+        if (e.PropertyName is nameof(Note.Title) && string.IsNullOrWhiteSpace(note.Title))
+        {
+            note.EnsureValidTitle();
+        }
+
+        if (e.PropertyName is nameof(Note.Title) or nameof(Note.Body))
+        {
+            TouchNote(note);
+        }
+
+        if (ReferenceEquals(note, SelectedNote))
+        {
+            OnPropertyChanged(nameof(SelectedNoteDates));
+        }
+    }
+
+    private void TouchSelectedNote()
     {
         if (SelectedNote is null)
         {
             return;
         }
 
-        SelectedNote.UpdatedAt = DateTime.Now;
+        TouchNote(SelectedNote);
+    }
+
+    private void TouchNote(Note note)
+    {
+        note.UpdatedAt = DateTime.Now;
         MarkDirty();
+
+        if (ReferenceEquals(note, SelectedNote))
+        {
+            OnPropertyChanged(nameof(SelectedNoteDates));
+        }
     }
 
     private void MarkDirty() => _isDirty = true;
-}
-
-internal static class ColorExtensions
-{
-    public static uint ToArgbHex(this Color color)
-    {
-        var a = (uint)(color.Alpha * 255) << 24;
-        var r = (uint)(color.Red * 255) << 16;
-        var g = (uint)(color.Green * 255) << 8;
-        var b = (uint)(color.Blue * 255);
-        return a | r | g | b;
-    }
 }
