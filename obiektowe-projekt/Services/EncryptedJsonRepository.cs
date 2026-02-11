@@ -27,7 +27,7 @@ public class EncryptedJsonRepository<T> : IRepository<T>
         {
             if (!File.Exists(_filePath))
             {
-                return Result<T>.Failure("Brak zapisanych danych.");
+                return Result<T>.Success(default!);
             }
 
             var encrypted = await File.ReadAllBytesAsync(_filePath, cancellationToken);

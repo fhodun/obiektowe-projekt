@@ -1,19 +1,42 @@
 using System.Text.Json.Serialization;
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace obiektowe_projekt.Models;
 
-public class Note : IEquatable<Note>
+public partial class Note : ObservableObject, IEquatable<Note>
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
-    public string Title { get; set; } = "Nowa notatka";
-    public string Body { get; set; } = string.Empty;
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
-    public DateTime UpdatedAt { get; set; } = DateTime.Now;
-    public DrawingData Drawing { get; set; } = new();
-    public AudioAttachment? Audio { get; set; }
+    [ObservableProperty]
+    private Guid id = Guid.NewGuid();
+
+    [ObservableProperty]
+    private string title = "Nowa notatka";
+
+    [ObservableProperty]
+    private string body = string.Empty;
+
+    [ObservableProperty]
+    private DateTime createdAt = DateTime.Now;
+
+    [ObservableProperty]
+    private DateTime updatedAt = DateTime.Now;
+
+    [ObservableProperty]
+    private DrawingData drawing = new();
+
+    [ObservableProperty]
+    private AudioAttachment? audio;
 
     [JsonIgnore]
-    public bool IsSelectedForExport { get; set; }
+    [ObservableProperty]
+    private bool isSelectedForExport;
+
+    public void EnsureValidTitle()
+    {
+        if (string.IsNullOrWhiteSpace(Title))
+        {
+            Title = "Untitled";
+        }
+    }
 
     public static bool operator ==(Note? left, Note? right)
     {
@@ -64,7 +87,7 @@ public class Note : IEquatable<Note>
         return new Note
         {
             Id = Guid.NewGuid(),
-            Title = $"{Title} (kopia)",
+            Title = string.IsNullOrWhiteSpace(Title) ? "Untitled (kopia)" : $"{Title} (kopia)",
             Body = Body,
             CreatedAt = DateTime.Now,
             UpdatedAt = DateTime.Now,

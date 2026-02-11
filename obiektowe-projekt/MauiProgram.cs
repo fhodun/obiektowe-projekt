@@ -22,6 +22,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IRepository<List<Note>>, EncryptedJsonRepository<List<Note>>>();
         builder.Services.AddSingleton<IZipExportService, ZipExportService>();
         builder.Services.AddSingleton<IAutoSaveService, AutoSaveService>();
+        builder.Services.AddSingleton<IDrawingService, DrawingService>();
 
         builder.Services.AddSingleton<MainViewModel>();
         builder.Services.AddSingleton<MainPage>();
